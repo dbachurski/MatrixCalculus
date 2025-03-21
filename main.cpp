@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <vector>
 #include "strassen.hpp"
 
 using namespace Eigen;
@@ -40,51 +41,42 @@ void printOpCount(const std::string& label, const OpCount& opCount) {
 }
 
 int main() {
-    MatrixXd A = MatrixXd::Random(256, 256);
-    MatrixXd B = MatrixXd::Random(256, 256);
-    MatrixXd C_standard, C_strassen;
-    unsigned int threshold;
+    // Grid: matrix sizes and thresholds
+    std::vector<unsigned int> matrixSizes = {4, 8, 16, 32, 128, 256, 512};
+    std::vector<unsigned int> thresholds = {4, 16, 64, 128};
 
     Strassen strassen;
 
-    // Multiply matrices using both standard and Strassen algorithms
-    // Measure execution time for each method
+    for (unsigned int n : matrixSizes) {
+        std::cout << "\n=============================================\n";
+        std::cout << "Matrix size: " << n << "x" << n << "\n";
 
-    // Standard multiplication
-    auto start_standard = high_resolution_clock::now();
-    C_standard = A * B;
-    auto end_standard = high_resolution_clock::now();
-    auto duration_standard = duration_cast<microseconds>(end_standard - start_standard);
-    printTime("Standard multiplication time", duration_standard.count());
+        // Generate random matrix
+        MatrixXd A = MatrixXd::Random(n, n);
+        MatrixXd B = MatrixXd::Random(n, n);
 
-    // Strassen multiplication (threshold = 2)
-    threshold = 2;
-    auto start_strassen = high_resolution_clock::now();
-    C_strassen = strassen.strassenMultiply(A, B, threshold);
-    auto end_strassen = high_resolution_clock::now();
-    auto duration_strassen = duration_cast<microseconds>(end_strassen - start_strassen);
-    printTime("Strassen multiplication time (threshold = 2)", duration_strassen.count());
+        // Standard multiplication
+        auto start_standard = high_resolution_clock::now();
+        MatrixXd C_standard = A * B;
+        auto end_standard = high_resolution_clock::now();
+        auto duration_standard = duration_cast<microseconds>(end_standard - start_standard);
+        printTime("Standard multiplication time", duration_standard.count());
+        OpCount standard_ops = countOperations("standard", n);
+        printOpCount("Standard multiplication", standard_ops);
 
-    // Strassen multiplication (threshold = 64)
-    threshold = 64;
-    start_strassen = high_resolution_clock::now();
-    C_strassen = strassen.strassenMultiply(A, B, threshold);
-    end_strassen = high_resolution_clock::now();
-    duration_strassen = duration_cast<microseconds>(end_strassen - start_strassen);
-    printTime("Strassen multiplication time (threshold = 64)", duration_strassen.count());
-
-    // Calculate number of operations
-    OpCount standard_ops = countOperations("standard", 256);
-    printOpCount("\nStandard multiplication", standard_ops);
-
-    OpCount strassen_ops_2 = countOperations("strassen", 256, 2);
-    printOpCount("Strassen (threshold = 2)", strassen_ops_2);
-
-    OpCount strassen_ops_64 = countOperations("strassen", 256, 64);
-    printOpCount("Strassen (threshold = 64)", strassen_ops_64);
-
-    // Calculate the difference between Strassen and standard multiplication results
-    std::cout << "Difference norm: " << (C_strassen - C_standard).norm() << "\n";
+        // Strassen multiplication for different thresholds
+        for (unsigned int t : thresholds) {
+            std::cout << "\n--- Strassen multiplication with threshold = " << t << " ---\n";
+            auto start_strassen = high_resolution_clock::now();
+            MatrixXd C_strassen = strassen.strassenMultiply(A, B, t);
+            auto end_strassen = high_resolution_clock::now();
+            auto duration_strassen = duration_cast<microseconds>(end_strassen - start_strassen);
+            printTime("Strassen multiplication time", duration_strassen.count());
+            OpCount strassen_ops = countOperations("strassen", n, t);
+            printOpCount("Strassen multiplication", strassen_ops);
+            std::cout << "Difference norm: " << (C_strassen - C_standard).norm() << "\n";
+        }
+    }
 
     return 0;
 }
